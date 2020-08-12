@@ -1,0 +1,5 @@
+files/etc/shibboleth/*.pem
+clouds.yaml
+gcloud-key.json
+configuration.json
+hosts.yml

@@ -1,0 +1,235 @@
+- hosts: all
+  become: yes
+  vars:
+    docker_virtualenv_path: /home/centos/docker-venv
+  tasks:
+    - name: Enable EPEL repo
+      yum:
+        name: epel-release
+      tags:
+        - common
+    - name: Install yum utils
+      yum:
+        name: yum-utils
+      tags:
+        - common
+    - name: Install PIP
+      yum:
+        name: python-pip
+      tags:
+        - common
+    - name: Upgrade pip
+      pip:
+        name: pip
+        version: "20.2.1"
+    - name: Install Virtualenv
+      pip:
+        name: virtualenv
+        version: "20.0.30"
+      tags:
+        - common      
+    - name: Install Docker
+      block:
+        - name: Uninstall any old versions of Docker
+          yum:
+            name:
+              - docker
+              - docker-client
+              - docker-client-latest
+              - docker-common
+              - docker-latest
+              - docker-latest-logrotate
+              - docker-logrotate
+              - docker-engine
+            state: removed
+        - name: Add Docker repository
+          command: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+          args:
+            creates: /etc/yum.repos.d/docker-ce.repo
+        - name: Install Docker
+          yum:
+            name:
+              - docker-ce
+              - docker-ce-cli
+              - containerd.io
+      tags:
+        - docker
+    - name: Start Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+      tags:
+        - docker
+    - name: Install Shibboleth service provider
+      block:
+        - name: Add Shibboleth repository
+          yum_repository:
+            name: shibboleth
+            description: Shibboleth (CentOS_7)
+            gpgcheck: yes
+            gpgkey: https://download.opensuse.org/repositories/security:/shibboleth/CentOS_7/repodata/repomd.xml.key
+            mirrorlist: https://shibboleth.net/cgi-bin/mirrorlist.cgi/CentOS_7
+        - name: Install Shibboleth package
+          yum:
+            name: shibboleth.x86_64
+      tags:
+        - shibboleth
+    - name: Install Apache HTTPD server
+      yum:
+        name:
+          - httpd.x86_64
+          - mod_ssl
+      tags:
+        - apache
+    - name: Configure Shibboleth service provider
+      block:
+        - name: Copy Shibboleth keys and certificates
+          copy:
+            src: files/etc/shibboleth/{{ item }}
+            dest: /etc/shibboleth
+            mode: "0644"
+          with_items:
+            - sp-encrypt-cert.pem
+            - sp-encrypt-key.pem
+            - sp-signing-cert.pem
+            - sp-signing-key.pem
+        - name: Copy Shibboleth attribute map
+          copy:
+            src: files/etc/shibboleth/attribute-map.xml
+            dest: /etc/shibboleth
+            mode: "0644"
+        - name: Download Identity Provider's metadata
+          get_url:
+            url: "{{ saml_identity_provider_metadata_url }}"
+            dest: /etc/shibboleth/idp-metadata.xml
+            mode: "0644"
+        - name: Create Shibboleth main configuration file
+          template:
+            src: files/etc/shibboleth/shibboleth2.xml.j2
+            dest: /etc/shibboleth/shibboleth2.xml
+            mode: "0644"
+        - name: Start Shibboleth service
+          systemd:
+            name: shibd
+            state: started
+            enabled: yes
+      tags:
+        - shibboleth
+    - name: Configure Apache HTTPD server
+      block:
+        - name: Remove Apache welcome.conf configuration file
+          file:
+            path: /etc/httpd/conf.d/welcome.conf
+            state: absent
+        - name: Create the main Apache configuration file
+          template:
+            src: files/etc/httpd/conf/httpd.conf.j2
+            dest: /etc/httpd/conf/httpd.conf
+            mode: "0644"
+        - name: Create the Shibboleth Apache configuration file
+          template:
+            src: files/etc/httpd/conf.d/shib.conf.j2
+            dest: /etc/httpd/conf.d/shib.conf
+            mode: "0644"
+        - name: Set httpd_can_network_connect flag on
+          seboolean:
+            name: httpd_can_network_connect
+            state: yes
+            persistent: yes
+        - name: Start Apache service
+          systemd:
+            name: httpd
+            state: started
+            enabled: yes
+      tags:
+        - apache
+    - name: Prepare the bind mounts for the Magic Castle UI container
+      block:
+        - name: Create the Magic Castle UI work directory
+          file:
+            path: /home/centos/mcui
+            state: directory
+        - name: Copy the OpenStack configuration file
+          copy:
+            src: clouds.yaml
+            dest: /home/centos/mcui
+        - name: Copy the Google Cloud service account configuration file
+          copy:
+            src: gcloud-key.json
+            dest: /home/centos/mcui
+        - name: Copy the Magic Castle UI configuration file
+          copy:
+            src: configuration.json
+            dest: /home/centos/mcui
+        - name: Create the clusters backup directory
+          file:
+            path: /home/centos/mcui/clusters_backup
+            state: directory
+            mode: "0777"
+      tags:
+        - docker
+    - name: Install Docker SDK for Python
+      # docker_container module requires Docker SDK for Python
+      block:
+        - name: Create Docker SDK for Python's virtual environment
+          command:
+            cmd: virtualenv {{ docker_virtualenv_path }}
+        - name: Install Docker SDK for Python
+          pip:
+            name: docker
+            version: "4.3.0"
+            virtualenv: "{{ docker_virtualenv_path }}"
+      tags:
+        - docker
+    - name: Start the Magic Castle UI container
+      vars:
+        ansible_python_interpreter: "{{ docker_virtualenv_path }}/bin/python"
+      docker_container:
+        name: mcui
+        image: fredericfc/magic_castle-ui:{{ magic_castle_ui_version }}
+        restart_policy: always
+        state: started
+        published_ports:
+          - "5000:5000"
+        mounts:
+          - source: database
+            target: /home/mcu/database
+            type: volume
+          - source: /home/centos/mcui/gcloud-key.json
+            target: /home/mcu/credentials/gcloud-key.json
+            type: bind
+          - source: /home/centos/mcui/clouds.yaml
+            target: /home/mcu/.config/openstack/clouds.yaml
+            type: bind
+          - source: /home/centos/mcui/clusters_backup
+            target: /home/mcu/clusters
+            type: bind
+          - source: /home/centos/mcui/configuration.json
+            target: /home/mcu/configuration.json
+            type: bind
+      tags:
+        - docker
+    - name: Enable HTTPS
+      block:
+        - name: Install Certbot
+          yum:
+            name:
+              - certbot
+              - python2-certbot-apache
+        - name: Generate HTTPS certificate
+          command:
+            cmd: certbot -n --apache -d {{ certbot_certificate_domain }} -m {{ server_admin_email }} --agree-tos
+        - name: Setup automatic HTTPS certificate renewal 
+          cron:
+            name: Let's Encrypt HTTPS certificate renewal
+            cron_file: /etc/crontab
+            minute: "0"
+            hour: "0,12"
+            day: "*"
+            month: "*"
+            weekday: "*"
+            user: root
+            job: "python -c 'import random; import time; time.sleep(random.random() * 3600)' && certbot renew -q"
+      tags:
+        - apache
