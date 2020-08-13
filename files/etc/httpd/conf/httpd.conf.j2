@@ -109,9 +109,9 @@ DocumentRoot "/var/www/html"
 
 <VirtualHost *:80>
     DocumentRoot "/var/www/html"
-    ServerName {{ apache_server_name }}
+    ServerName {{ fqdn }}
     RewriteEngine on
-    RewriteCond %{SERVER_NAME} ={{ apache_server_name }}
+    RewriteCond %{SERVER_NAME} ={{ fqdn }}
     RewriteRule ^ https://%{SERVER_NAME}%{REQUEST_URI} [END,NE,R=permanent]
 </VirtualHost>
 

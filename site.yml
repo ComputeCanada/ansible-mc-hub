@@ -2,6 +2,7 @@
   become: yes
   vars:
     docker_virtualenv_path: /home/centos/docker-venv
+    internal_web_app_port: "5000"
   tasks:
     - name: Enable EPEL repo
       yum:
@@ -219,7 +220,7 @@
               - python2-certbot-apache
         - name: Generate HTTPS certificate
           command:
-            cmd: certbot -n --apache -d {{ certbot_certificate_domain }} -m {{ server_admin_email }} --agree-tos
+            cmd: certbot -n --apache -d {{ fqdn }} -m {{ server_admin_email }} --agree-tos
         - name: Setup automatic HTTPS certificate renewal 
           cron:
             name: Let's Encrypt HTTPS certificate renewal
