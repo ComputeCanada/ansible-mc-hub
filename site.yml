@@ -218,6 +218,7 @@
       tags:
         - docker
     - name: Enable HTTPS
+      # Inspired by https://certbot.eff.org/lets-encrypt/centosrhel7-apache
       block:
         - name: Install Certbot
           yum:
@@ -225,7 +226,18 @@
               - certbot
               - python2-certbot-apache
             state: installed
+        - name: Check whether HTTPS keys and certificates already exist
+          stat:
+            path: "{{ item }}"
+          loop:
+            - /etc/letsencrypt/live/{{ fqdn }}/cert.pem
+            - /etc/letsencrypt/live/{{ fqdn }}/privkey.pem
+            - /etc/letsencrypt/live/{{ fqdn }}/chain.pem
+            - /etc/letsencrypt/live/{{ fqdn }}/fullchain.pem
+          register: https_keys_and_certificates_stats
         - name: Generate HTTPS certificate
+          # Only generate HTTPS keys and certificate when they don't already exist
+          when: https_keys_and_certificates_stats.results | rejectattr('stat.exists') | list
           command:
             cmd: certbot -n --apache -d {{ fqdn }} -m {{ server_admin_email }} --agree-tos
         - name: Setup automatic HTTPS certificate renewal 
