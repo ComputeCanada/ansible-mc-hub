@@ -36,18 +36,6 @@
         - common      
     - name: Install Docker
       block:
-        - name: Uninstall any old versions of Docker
-          yum:
-            name:
-              - docker
-              - docker-client
-              - docker-client-latest
-              - docker-common
-              - docker-latest
-              - docker-latest-logrotate
-              - docker-logrotate
-              - docker-engine
-            state: removed
         - name: Add Docker repository
           command: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
           args:
