@@ -182,6 +182,7 @@
         - name: Create Docker SDK for Python's virtual environment
           command:
             cmd: virtualenv {{ docker_virtualenv_path }}
+            creates: "{{ docker_virtualenv_path }}"
         - name: Install Docker SDK for Python
           pip:
             name: docker
