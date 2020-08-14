@@ -26,6 +26,8 @@
       pip:
         name: pip
         version: "20.2.1"
+      tags:
+        - common
     - name: Install Virtualenv
       pip:
         name: virtualenv
@@ -91,6 +93,17 @@
         - apache
     - name: Configure Shibboleth service provider
       block:
+        - name: Check if Shibboleth keys and certificates exist locally
+          local_action: command stat {{ playbook_dir }}/files/etc/shibboleth/{{ item }}
+          become: no
+          failed_when: no
+          changed_when: false
+          loop:
+            - sp-encrypt-cert.pem
+            - sp-encrypt-key.pem
+            - sp-signing-cert.pem
+            - sp-signing-key.pem
+          register: shib_keys_and_certificates_stats
         - name: Copy Shibboleth keys and certificates
           copy:
             src: files/etc/shibboleth/{{ item }}
@@ -101,6 +114,7 @@
             - sp-encrypt-key.pem
             - sp-signing-cert.pem
             - sp-signing-key.pem
+          when: (shib_keys_and_certificates_stats.results | selectattr('rc') | list | length) == 0
         - name: Copy Shibboleth attribute map
           copy:
             src: files/etc/shibboleth/attribute-map.xml
