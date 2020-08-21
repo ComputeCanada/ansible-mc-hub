@@ -242,7 +242,12 @@
           # Only generate HTTPS keys and certificate when they don't already exist
           when: https_keys_and_certificates_stats.results | rejectattr('stat.exists') | list
           command:
-            cmd: certbot -n --apache -d {{ fqdn }} -m {{ server_admin_email }} --agree-tos
+            cmd: certbot -n --apache -d {{ fqdn }} -m {{ server_admin_email }} --agree-tos certonly
+        - name: Create the HTTPS Apache configuration file
+          template:
+            src: files/etc/httpd/conf.d/httpd-le-ssl.conf.j2
+            dest: /etc/httpd/conf.d/httpd-le-ssl.conf
+            mode: "0644"
         - name: Setup automatic HTTPS certificate renewal 
           cron:
             name: Let's Encrypt HTTPS certificate renewal

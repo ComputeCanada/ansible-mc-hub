@@ -1,0 +1,18 @@
+<IfModule mod_ssl.c>
+    <VirtualHost *:443>
+        DocumentRoot "/var/www/html"
+        ServerName {{ fqdn }}
+        RewriteEngine on
+
+        # Some rewrite rules in this file were disabled on your HTTPS site,
+        # because they have the potential to create redirection loops.
+
+        #     RewriteCond %{SERVER_NAME} ={{ fqdn }}
+        #     RewriteRule ^ https://%{SERVER_NAME}%{REQUEST_URI} [END,NE,R=permanent]
+        
+        SSLCertificateFile /etc/letsencrypt/live/{{ fqdn }}/cert.pem
+        SSLCertificateKeyFile /etc/letsencrypt/live/{{ fqdn }}/privkey.pem
+        Include /etc/letsencrypt/options-ssl-apache.conf
+        SSLCertificateChainFile /etc/letsencrypt/live/{{ fqdn }}/chain.pem
+    </VirtualHost>
+</IfModule>
