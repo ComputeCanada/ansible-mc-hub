@@ -153,9 +153,9 @@
             enabled: yes
       tags:
         - apache
-    - name: Prepare the bind mounts for the Magic Castle UI container
+    - name: Prepare the bind mounts for the MC Hub container
       block:
-        - name: Create the Magic Castle UI work directory
+        - name: Create the MC Hub work directory
           file:
             path: /home/centos/mcui
             state: directory
@@ -167,7 +167,7 @@
           copy:
             src: gcloud-key.json
             dest: /home/centos/mcui
-        - name: Copy the Magic Castle UI configuration file
+        - name: Copy the MC Hub configuration file
           copy:
             src: configuration.json
             dest: /home/centos/mcui
@@ -192,12 +192,12 @@
             virtualenv: "{{ docker_virtualenv_path }}"
       tags:
         - docker
-    - name: Start the Magic Castle UI container
+    - name: Start the MC Hub container
       vars:
         ansible_python_interpreter: "{{ docker_virtualenv_path }}/bin/python"
       docker_container:
         name: mcui
-        image: fredericfc/magic_castle-ui:{{ magic_castle_ui_version }}
+        image: fredericfc/magic_castle-ui:{{ mc_hub_version }}
         restart_policy: always
         state: started
         published_ports:

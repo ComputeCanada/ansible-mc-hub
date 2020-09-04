@@ -1,6 +1,6 @@
-# Ansible Magic Castle UI
+# Ansible MC Hub
 
-This project is meant to provision, configure and deploy [Magic Castle UI](https://github.com/ComputeCanada/magic_castle-ui) on the cloud with minimal manual intervention. This is done through an Ansible playbook. The playbook sets up the Magic Castle UI Docker container, configures a SAML service provider to enable single sign-on authentication and generates a _Let's Encrypt_ HTTPS certificate.
+This project is meant to provision, configure and deploy [MC Hub](https://github.com/ComputeCanada/mc-hub) on the cloud with minimal manual intervention. This is done through an Ansible playbook. The playbook sets up the MC Hub Docker container, configures a SAML service provider to enable single sign-on authentication and generates a _Let's Encrypt_ HTTPS certificate.
 
 ## Controller requirements
 
@@ -35,7 +35,7 @@ These steps assume you are using OpenStack as your cloud service provider but th
 
 6. Create an `A` DNS record pointing to the floating IP. For instance, you can create a record for `mc.computecanada.dev` pointing to the previously created floating IP. This is required to generate an HTTPS certificate.
 
-## Magic Castle UI configuration
+## MC Hub configuration
 
 1. Clone this repository.
     ````
@@ -67,7 +67,7 @@ These steps assume you are using OpenStack as your cloud service provider but th
     sp-signing-key.pem
     ````
 
-5. Create a `configuration.json` file in the current directory according to [Magic Castle UI configuration documentation](https://github.com/ComputeCanada/magic_castle-ui/blob/master/docs/configuration.md). Make sure to set `auth_type` to `"SAML"`.
+5. Create a `configuration.json` file in the current directory according to [MC Hub configuration documentation](https://github.com/ComputeCanada/mc-hub/blob/master/docs/configuration.md). Make sure to set `auth_type` to `"SAML"`.
 
 6. Create a `hosts.yml` file with the proper configuration.
 
@@ -81,7 +81,7 @@ These steps assume you are using OpenStack as your cloud service provider but th
           saml_identity_provider_entity_id: https://idp.computecanada.ca/idp/shibboleth
           saml_service_provider_entity_id: mc.computecanada.dev
           server_admin_email: admin@example.com
-          magic_castle_ui_version: "v5.0.2"
+          mc_hub_version: "v5.0.2"
     ````
 
     `mc.computecanada.dev`: Should correspond to the public IP or FQDN of the instance. This will be used by Ansible to connect to your instance.
@@ -96,7 +96,7 @@ These steps assume you are using OpenStack as your cloud service provider but th
 
     `server_admin_email`: This email will be notified by _Let's Encrypt_ for important messages related to the HTTPS certificate. It is also displayed as the support contact in some SAML and Apache error messages.
 
-    `magic_castle_ui_version`: The version tag of the [Magic Castle UI](https://github.com/ComputeCanada/magic_castle-ui) Docker image.
+    `mc_hub_version`: The version tag of the [MC Hub](https://github.com/ComputeCanada/mc-hub) Docker image.
 
 
 ## Running the playbook
@@ -116,6 +116,6 @@ These steps assume you are using OpenStack as your cloud service provider but th
 
 3. If you created a new SAML service provider, you need to register it with your identity provider. Simply send to the identity provider manager your metadata URL: `http://mc.computecanada.dev/Shibboleth.sso/Metadata` (where `mc.computecanada.dev` corresponds to your FQDN).
 
-4. Once your service provider is registered, you can navigate to the URL of Magic Castle UI and start building clusters.
+4. Once your service provider is registered, you can navigate to the URL of MC Hub and start building clusters.
 
 > If you ever need to make changes to a configuration file, make the modification and run the Ansible playbook again.
