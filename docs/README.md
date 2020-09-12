@@ -1,4 +1,8 @@
-# Andible MC Hub documentation
+# Ansible MC Hub documentation
+
+## Architecture
+
+![Ansible MC Hub architecture](https://docs.google.com/drawings/d/e/2PACX-1vQsT_66gIa-2Em4p2lAQcAQfSRWik18yZmTghk_lPKAsaDycY2FTOA4MjPlOS9LVW_5r-BUhDzC_OBR/pub?w=721&amp;h=530)
 
 ## Controller requirements
 
