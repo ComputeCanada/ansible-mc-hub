@@ -60,7 +60,9 @@ These steps assume you are using OpenStack as your cloud service provider but th
 
 4. If you have already created a SAML service provider on a different server but with the same FQDN, you can use the same certificates and keys. If this is a new setup, skip this step.
 
-    Simply copy the `.pem` files from the `/etc/shibboleth` directory of the server into `files/etc/shibboleth` in the current directory. You should now have the following files added in this directory:
+    Create a directory named `shibboleth-crypto` at the root of the project directory.
+
+    Simply copy the `.pem` files from the `/etc/shibboleth` directory of the server into `shibboleth-crypto` in the current directory. You should now have the following files added in this directory:
 
     ````
     sp-encrypt-cert.pem
@@ -71,7 +73,7 @@ These steps assume you are using OpenStack as your cloud service provider but th
 
 5. In order to send clusters' status logs to Logstash, you will need to provide a copy of the root certificate used to authenticate the Logstash servers. This is especially useful when the Logstash server uses a self-signed certificate.
 
-    Create a `logstash-servers.crt` file in the `files/etc/filebeat` directory containing the root certificate.
+    Create a `logstash-servers.crt` file in the current directory containing the root certificate.
 
 6. Create a `configuration.json` file in the current directory according to [MC Hub configuration documentation](https://github.com/ComputeCanada/mc-hub/blob/master/docs/configuration.md). Make sure to set `auth_type` to `"SAML"`.
 

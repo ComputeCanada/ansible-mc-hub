@@ -82,7 +82,7 @@
     - name: Configure Shibboleth service provider
       block:
         - name: Check if Shibboleth keys and certificates exist locally
-          local_action: command stat {{ playbook_dir }}/files/etc/shibboleth/{{ item }}
+          local_action: command stat {{ inventory_dir }}/shibboleth-crypto/{{ item }}
           become: no
           failed_when: no
           changed_when: false
@@ -94,7 +94,7 @@
           register: shib_keys_and_certificates_stats
         - name: Copy Shibboleth keys and certificates
           copy:
-            src: files/etc/shibboleth/{{ item }}
+            src: "{{ inventory_dir }}/shibboleth-crypto/{{ item }}"
             dest: /etc/shibboleth
             mode: "0644"
           with_items:
@@ -161,15 +161,15 @@
             state: directory
         - name: Copy the OpenStack configuration file
           copy:
-            src: clouds.yaml
+            src: "{{ inventory_dir }}/clouds.yaml"
             dest: /home/centos/mcui
         - name: Copy the Google Cloud service account configuration file
           copy:
-            src: gcloud-key.json
+            src: "{{ inventory_dir }}/gcloud-key.json"
             dest: /home/centos/mcui
         - name: Copy the MC Hub configuration file
           copy:
-            src: configuration.json
+            src: "{{ inventory_dir }}/configuration.json"
             dest: /home/centos/mcui
         - name: Create the clusters backup directory
           file:
@@ -282,7 +282,7 @@
             mode: "0644"
         - name: Copy logstash certificate
           copy:
-            src: files/etc/filebeat/logstash-servers.crt
+            src: "{{ inventory_dir }}/logstash-servers.crt"
             dest: /etc/filebeat/logstash-servers.crt
         - name: Start Filebeat service
           systemd:
