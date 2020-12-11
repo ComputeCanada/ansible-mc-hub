@@ -69,9 +69,13 @@ These steps assume you are using OpenStack as your cloud service provider but th
     sp-signing-key.pem
     ````
 
-5. Create a `configuration.json` file in the current directory according to [MC Hub configuration documentation](https://github.com/ComputeCanada/mc-hub/blob/master/docs/configuration.md). Make sure to set `auth_type` to `"SAML"`.
+5. In order to send clusters' status logs to Logstash, you will need to provide a copy of the root certificate used to authenticate the Logstash servers. This is especially useful when the Logstash server uses a self-signed certificate.
 
-6. Create a `hosts.yml` file with the proper configuration.
+    Create a `logstash-servers.crt` file in the `files/etc/filebeat` directory containing the root certificate.
+
+6. Create a `configuration.json` file in the current directory according to [MC Hub configuration documentation](https://github.com/ComputeCanada/mc-hub/blob/master/docs/configuration.md). Make sure to set `auth_type` to `"SAML"`.
+
+7. Create a `hosts.yml` file with the proper configuration.
 
     ````yaml
     all:
@@ -82,6 +86,8 @@ These steps assume you are using OpenStack as your cloud service provider but th
           saml_identity_provider_metadata_url: https://idp.computecanada.ca/idp/shibboleth
           saml_identity_provider_entity_id: https://idp.computecanada.ca/idp/shibboleth
           saml_service_provider_entity_id: mc.computecanada.dev
+          logstash_hosts:
+            - logstash.example.com:5044
           server_admin_email: admin@example.com
           mc_hub_version: "v5.0.2"
     ````
@@ -95,6 +101,8 @@ These steps assume you are using OpenStack as your cloud service provider but th
     `saml_identity_provider_entity_id`: The entity ID of your identity provider. This can be found in the metadata SAML file of the identity provider.
 
     `saml_service_provider_entity_id`: Your already existing SAML service provider entity ID, or a new one. It needs to be unique. We recommend using the FQDN as the entity ID.
+
+    `logstash_hosts`: The hostnames of the logstash servers that will receive clusters' status logs.
 
     `server_admin_email`: This email will be notified by _Let's Encrypt_ for important messages related to the HTTPS certificate. It is also displayed as the support contact in some SAML and Apache error messages.
 

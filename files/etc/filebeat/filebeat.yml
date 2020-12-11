@@ -1,0 +1,20 @@
+filebeat.prospectors:
+  - type: log
+    paths:
+      - /var/lib/docker/containers/*/*-json.log
+    json.message_key: log
+    include_lines: ['^{"hostname":']
+    tags:
+      - mc-hub-prod
+
+processors:
+  - decode_json_fields:
+      fields: ["json.log"]
+      max_depth: 2
+      target: ""
+  - add_docker_metadata:
+      host: "unix:///var/run/docker.sock"
+
+output.logstash:
+  hosts: {{ logstash_hosts | to_json }}
+  ssl.certificate_authorities: /etc/filebeat/logstash-servers.crt

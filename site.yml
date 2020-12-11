@@ -261,3 +261,33 @@
             job: "python -c 'import random; import time; time.sleep(random.random() * 3600)' && certbot renew -q"
       tags:
         - apache
+    - name: Configure Filebeat
+      block:
+        - name: Create downloads directory
+          file:
+            path: /home/centos/Downloads
+            state: directory
+        - name: Download Filebeat
+          get_url:
+            url: https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-6.0.1-x86_64.rpm
+            dest: /home/centos/Downloads/filebeat.rpm
+        - name: Install Filebeat
+          yum:
+            name: /home/centos/Downloads/filebeat.rpm
+            state: present
+        - name: Configure Filebeat
+          template:
+            src: files/etc/filebeat/filebeat.yml
+            dest: /etc/filebeat/filebeat.yml
+            mode: "0644"
+        - name: Copy logstash certificate
+          copy:
+            src: files/etc/filebeat/logstash-servers.crt
+            dest: /etc/filebeat/logstash-servers.crt
+        - name: Start Filebeat service
+          systemd:
+            name: filebeat
+            state: started
+            enabled: yes
+      tags:
+        - filebeat

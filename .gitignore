@@ -3,3 +3,4 @@ clouds.yaml
 gcloud-key.json
 configuration.json
 hosts.yml
+files/etc/filebeat/logstash-servers.crt
