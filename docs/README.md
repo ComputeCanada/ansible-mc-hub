@@ -96,7 +96,7 @@ These steps assume you are using OpenStack as your cloud service provider but th
 
     `mc.computecanada.dev`: Should correspond to the public IP or FQDN of the instance. This will be used by Ansible to connect to your instance.
 
-    `anisble_user`: The username used by Ansible to connect via SSH to your instance.
+    `ansible_user`: The username used by Ansible to connect via SSH to your instance.
 
     `saml_identity_provider_metadata_url`: The metadata URL of your identity provider. This URL should correspond to a SAML file.
 
