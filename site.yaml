@@ -1,7 +1,7 @@
 - hosts: all
   become: yes
   vars:
-    docker_virtualenv_path: /home/centos/docker-venv
+    docker_virtualenv_path: "/home/{{ ansible_user }}/docker-venv"
     internal_web_app_port: "5000"
   tasks:
     - name: Enable EPEL repo
@@ -18,20 +18,20 @@
         - common
     - name: Install PIP
       yum:
-        name: python-pip
+        name: python3-pip
         state: installed
       tags:
         - common
     - name: Upgrade pip
       pip:
         name: pip
-        version: "20.2.1"
+        version: "21.3.1"
       tags:
         - common
     - name: Install Virtualenv
       pip:
         name: virtualenv
-        version: "20.0.30"
+        version: "20.10.0"
       tags:
         - common      
     - name: Install Docker
@@ -61,10 +61,10 @@
         - name: Add Shibboleth repository
           yum_repository:
             name: shibboleth
-            description: Shibboleth (CentOS_7)
-            gpgcheck: yes
-            gpgkey: https://download.opensuse.org/repositories/security:/shibboleth/CentOS_7/repodata/repomd.xml.key
-            mirrorlist: https://shibboleth.net/cgi-bin/mirrorlist.cgi/CentOS_7
+            description: Shibboleth (CentOS_8)
+            gpgcheck: no
+            gpgkey: https://download.opensuse.org/repositories/security:/shibboleth/CentOS_8/repodata/repomd.xml.key
+            mirrorlist: https://shibboleth.net/cgi-bin/mirrorlist.cgi/CentOS_8
         - name: Install Shibboleth package
           yum:
             name: shibboleth.x86_64
@@ -141,11 +141,11 @@
             src: files/etc/httpd/conf.d/shib.conf.j2
             dest: /etc/httpd/conf.d/shib.conf
             mode: "0644"
-        - name: Set httpd_can_network_connect flag on
-          seboolean:
-            name: httpd_can_network_connect
-            state: yes
-            persistent: yes
+              #        - name: Set httpd_can_network_connect flag on
+              #          seboolean:
+              #            name: httpd_can_network_connect
+              #            state: yes
+              #            persistent: yes
         - name: Start Apache service
           systemd:
             name: httpd
@@ -157,23 +157,23 @@
       block:
         - name: Create the MC Hub work directory
           file:
-            path: /home/centos/mcui
+            path: "/home/{{ ansible_user }}/mcui"
             state: directory
         - name: Copy the OpenStack configuration file
           copy:
             src: "{{ inventory_dir }}/clouds.yaml"
-            dest: /home/centos/mcui
+            dest: "/home/{{ ansible_user }}/mcui"
         - name: Copy the Google Cloud service account configuration file
           copy:
             src: "{{ inventory_dir }}/gcloud-key.json"
-            dest: /home/centos/mcui
+            dest: "/home/{{ ansible_user }}/mcui"
         - name: Copy the MC Hub configuration file
           copy:
             src: "{{ inventory_dir }}/configuration.json"
-            dest: /home/centos/mcui
+            dest: "/home/{{ ansible_user }}/mcui"
         - name: Create the clusters backup directory
           file:
-            path: /home/centos/mcui/clusters_backup
+            path: "/home/{{ ansible_user }}/mcui/clusters_backup"
             state: directory
             mode: "0777"
       tags:
@@ -183,7 +183,7 @@
       block:
         - name: Create Docker SDK for Python's virtual environment
           command:
-            cmd: virtualenv {{ docker_virtualenv_path }}
+            cmd: /usr/local/bin/virtualenv {{ docker_virtualenv_path }}
             creates: "{{ docker_virtualenv_path }}"
         - name: Install Docker SDK for Python
           pip:
@@ -200,23 +200,28 @@
         image: fredericfc/magic_castle-ui:{{ mc_hub_version }}
         restart_policy: always
         state: started
+        env:
+          OS_CLOUD: "{{ default_cloud  }}"
         published_ports:
           - "{{ internal_web_app_port }}:5000"
         mounts:
           - source: database
             target: /home/mcu/database
             type: volume
-          - source: /home/centos/mcui/gcloud-key.json
+          - source: "/home/{{ ansible_user }}/mcui/gcloud-key.json"
             target: /home/mcu/credentials/gcloud-key.json
             type: bind
-          - source: /home/centos/mcui/clouds.yaml
+          - source: "/home/{{ ansible_user }}/mcui/clouds.yaml"
             target: /home/mcu/.config/openstack/clouds.yaml
             type: bind
-          - source: /home/centos/mcui/clusters_backup
+          - source: "/home/{{ ansible_user }}/mcui/clusters_backup"
             target: /home/mcu/clusters
             type: bind
-          - source: /home/centos/mcui/configuration.json
+          - source: "/home/{{ ansible_user }}/mcui/configuration.json"
             target: /home/mcu/configuration.json
+            type: bind
+          - source: "/home/{{ ansible_user }}/mc-hub/app"
+            target: /home/mcu/app
             type: bind
       tags:
         - docker
@@ -227,7 +232,7 @@
           yum:
             name:
               - certbot
-              - python2-certbot-apache
+              - python3-certbot-apache
             state: installed
         - name: Check whether HTTPS keys and certificates already exist
           stat:
@@ -261,33 +266,33 @@
             job: "python -c 'import random; import time; time.sleep(random.random() * 3600)' && certbot renew -q"
       tags:
         - apache
-    - name: Configure Filebeat
-      block:
-        - name: Create downloads directory
-          file:
-            path: /home/centos/Downloads
-            state: directory
-        - name: Download Filebeat
-          get_url:
-            url: https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-6.0.1-x86_64.rpm
-            dest: /home/centos/Downloads/filebeat.rpm
-        - name: Install Filebeat
-          yum:
-            name: /home/centos/Downloads/filebeat.rpm
-            state: present
-        - name: Configure Filebeat
-          template:
-            src: files/etc/filebeat/filebeat.yml
-            dest: /etc/filebeat/filebeat.yml
-            mode: "0644"
-        - name: Copy logstash certificate
-          copy:
-            src: "{{ inventory_dir }}/logstash-servers.crt"
-            dest: /etc/filebeat/logstash-servers.crt
-        - name: Start Filebeat service
-          systemd:
-            name: filebeat
-            state: started
-            enabled: yes
-      tags:
-        - filebeat
+          #    - name: Configure Filebeat
+          #      block:
+          #        - name: Create downloads directory
+          #          file:
+          #            path: "/home/{{ ansible_user }}/Downloads"
+          #            state: directory
+          #        - name: Download Filebeat
+          #          get_url:
+          #            url: https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-6.0.1-x86_64.rpm
+          #            dest: "/home/{{ ansible_user }}/Downloads/filebeat.rpm"
+          #        - name: Install Filebeat
+          #          yum:
+          #            name: "/home/{{ ansible_user }}/Downloads/filebeat.rpm"
+          #            state: present
+          #        - name: Configure Filebeat
+          #          template:
+          #            src: files/etc/filebeat/filebeat.yml
+          #            dest: /etc/filebeat/filebeat.yml
+          #            mode: "0644"
+          #        - name: Copy logstash certificate
+          #          copy:
+          #            src: "{{ inventory_dir }}/logstash-servers.crt"
+          #            dest: /etc/filebeat/logstash-servers.crt
+          #        - name: Start Filebeat service
+          #          systemd:
+          #            name: filebeat
+          #            state: started
+          #            enabled: yes
+          #      tags:
+          #        - filebeat
