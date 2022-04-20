@@ -33,7 +33,7 @@
         name: virtualenv
         version: "20.10.0"
       tags:
-        - common      
+        - common
     - name: Install Docker
       block:
         - name: Add Docker repository
@@ -157,25 +157,25 @@
       block:
         - name: Create the MC Hub work directory
           file:
-            path: "/home/{{ ansible_user }}/mcui"
+            path: "/home/{{ ansible_user }}/mc-hub"
             state: directory
         - name: Copy the OpenStack configuration file
           copy:
             src: "{{ inventory_dir }}/clouds.yaml"
-            dest: "/home/{{ ansible_user }}/mcui"
-        - name: Copy the Google Cloud service account configuration file
-          copy:
-            src: "{{ inventory_dir }}/gcloud-key.json"
-            dest: "/home/{{ ansible_user }}/mcui"
+            dest: "/home/{{ ansible_user }}/mc-hub"
         - name: Copy the MC Hub configuration file
           copy:
             src: "{{ inventory_dir }}/configuration.json"
-            dest: "/home/{{ ansible_user }}/mcui"
+            dest: "/home/{{ ansible_user }}/mc-hub"
         - name: Create the clusters backup directory
           file:
-            path: "/home/{{ ansible_user }}/mcui/clusters_backup"
+            path: "/home/{{ ansible_user }}/mc-hub/clusters_backup"
             state: directory
             mode: "0777"
+        - name: Copy the ACME registration key
+          copy:
+            src: "{{ inventory_dir }}/acme_key.pem"
+            dest: "/home/{{ ansible_user }}/mc-hub"
       tags:
         - docker
     - name: Install Docker SDK for Python
@@ -196,11 +196,13 @@
       vars:
         ansible_python_interpreter: "{{ docker_virtualenv_path }}/bin/python"
       docker_container:
-        name: mcui
+        name: mc-hub
         image: fredericfc/magic_castle-ui:{{ mc_hub_version }}
         restart_policy: always
         state: started
         env:
+          MAGIC_CASTLE_ACME_KEY_PEM: /home/mcu/credentials/acme_key.pem
+          OS_CLIENT_CONFIG_FILE: /home/mcu/credentials/clouds.yaml
           OS_CLOUD: "{{ default_cloud  }}"
         published_ports:
           - "{{ internal_web_app_port }}:5000"
@@ -208,16 +210,16 @@
           - source: database
             target: /home/mcu/database
             type: volume
-          - source: "/home/{{ ansible_user }}/mcui/gcloud-key.json"
-            target: /home/mcu/credentials/gcloud-key.json
+          - source: "/home/{{ ansible_user }}/mc-hub/acme_key.pem"
+            target: /home/mcu/credentials/acme_key.pem
             type: bind
-          - source: "/home/{{ ansible_user }}/mcui/clouds.yaml"
-            target: /home/mcu/.config/openstack/clouds.yaml
+          - source: "/home/{{ ansible_user }}/mc-hub/clouds.yaml"
+            target: /home/mcu/credentials/cloud.yaml
             type: bind
-          - source: "/home/{{ ansible_user }}/mcui/clusters_backup"
+          - source: "/home/{{ ansible_user }}/mc-hub/clusters_backup"
             target: /home/mcu/clusters
             type: bind
-          - source: "/home/{{ ansible_user }}/mcui/configuration.json"
+          - source: "/home/{{ ansible_user }}/mc-hub/configuration.json"
             target: /home/mcu/configuration.json
             type: bind
           - source: "/home/{{ ansible_user }}/mc-hub/app"
@@ -253,7 +255,7 @@
             src: files/etc/httpd/conf.d/httpd-le-ssl.conf.j2
             dest: /etc/httpd/conf.d/httpd-le-ssl.conf
             mode: "0644"
-        - name: Setup automatic HTTPS certificate renewal 
+        - name: Setup automatic HTTPS certificate renewal
           cron:
             name: Let's Encrypt HTTPS certificate renewal
             cron_file: /etc/crontab
