@@ -214,7 +214,7 @@
             target: /home/mcu/credentials/acme_key.pem
             type: bind
           - source: "/home/{{ ansible_user }}/mc-hub/clouds.yaml"
-            target: /home/mcu/credentials/cloud.yaml
+            target: /home/mcu/credentials/clouds.yaml
             type: bind
           - source: "/home/{{ ansible_user }}/mc-hub/clusters_backup"
             target: /home/mcu/clusters
