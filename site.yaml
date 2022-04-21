@@ -236,8 +236,8 @@
         restart_policy: always
         state: started
         env:
-          - MCHUB_HOST: 127.0.0.1
-          - MCHUB_PORT: 5000
+          MCHUB_HOST: 127.0.0.1
+          MCHUB_PORT: 5000
         mounts:
           - source: "/home/{{ ansible_user }}/mc-hub/configuration.json"
             target: /home/mcu/configuration.json
