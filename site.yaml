@@ -235,6 +235,7 @@
         image: fredericfc/magic_castle-ui:{{ mc_hub_version }}
         restart_policy: always
         state: started
+        network_mode: host
         env:
           MCHUB_HOST: "127.0.0.1"
           MCHUB_PORT: "5000"
