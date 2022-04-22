@@ -1,62 +1,26 @@
 - hosts: all
-  become: yes
   vars:
-    docker_virtualenv_path: "/home/{{ ansible_user }}/docker-venv"
     internal_web_app_port: "5000"
   tasks:
-    - name: Enable EPEL repo
+    # Disable SELinux because of issues with podman when mounting file
+    - name: Disable SELinux
+      become: yes
+      ansible.posix.selinux:
+        state: disabled
+    - name: Install EPEL repo
+      become: yes
       yum:
         name: epel-release
-        state: installed
-      tags:
-        - common
-    - name: Install yum utils
+        state: present
+    - name: Install podman
+      become: yes
       yum:
-        name: yum-utils
+        name: podman
         state: installed
       tags:
         - common
-    - name: Install PIP
-      yum:
-        name: python3-pip
-        state: installed
-      tags:
-        - common
-    - name: Upgrade pip
-      pip:
-        name: pip
-        version: "21.3.1"
-      tags:
-        - common
-    - name: Install Virtualenv
-      pip:
-        name: virtualenv
-        version: "20.10.0"
-      tags:
-        - common
-    - name: Install Docker
-      block:
-        - name: Add Docker repository
-          command: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-          args:
-            creates: /etc/yum.repos.d/docker-ce.repo
-        - name: Install Docker
-          yum:
-            name:
-              - docker-ce
-              - docker-ce-cli
-              - containerd.io
-            state: installed
-      tags:
-        - docker
-    - name: Start Docker service
-      systemd:
-        name: docker
-        state: started
-        enabled: yes
-      tags:
-        - docker
     - name: Install Shibboleth service provider
+      become: yes
       block:
         - name: Add Shibboleth repository
           yum_repository:
@@ -72,6 +36,7 @@
       tags:
         - shibboleth
     - name: Install Apache HTTPD server
+      become: yes
       yum:
         name:
           - httpd.x86_64
@@ -80,6 +45,7 @@
       tags:
         - apache
     - name: Configure Shibboleth service provider
+      become: yes
       block:
         - name: Check if Shibboleth keys and certificates exist locally
           local_action: command stat {{ inventory_dir }}/shibboleth-crypto/{{ item }}
@@ -126,6 +92,7 @@
       tags:
         - shibboleth
     - name: Configure Apache HTTPD server
+      become: yes
       block:
         - name: Remove Apache welcome.conf configuration file
           file:
@@ -159,6 +126,10 @@
           file:
             path: "/home/{{ ansible_user }}/mc-hub"
             state: directory
+        - name: Create the MC Hub database directory
+          file:
+            path: "/home/{{ ansible_user }}/mc-hub/database"
+            state: directory
         - name: Copy the OpenStack configuration file
           copy:
             src: "{{ inventory_dir }}/clouds.yaml"
@@ -171,31 +142,15 @@
           file:
             path: "/home/{{ ansible_user }}/mc-hub/clusters_backup"
             state: directory
-            mode: "0777"
+            mode: "0600"
         - name: Copy the ACME registration key
           copy:
             src: "{{ inventory_dir }}/acme_key.pem"
             dest: "/home/{{ ansible_user }}/mc-hub"
       tags:
         - docker
-    - name: Install Docker SDK for Python
-      # docker_container module requires Docker SDK for Python
-      block:
-        - name: Create Docker SDK for Python's virtual environment
-          command:
-            cmd: /usr/local/bin/virtualenv {{ docker_virtualenv_path }}
-            creates: "{{ docker_virtualenv_path }}"
-        - name: Install Docker SDK for Python
-          pip:
-            name: docker
-            version: "4.3.0"
-            virtualenv: "{{ docker_virtualenv_path }}"
-      tags:
-        - docker
     - name: Start the MC Hub container
-      vars:
-        ansible_python_interpreter: "{{ docker_virtualenv_path }}/bin/python"
-      docker_container:
+      containers.podman.podman_container:
         name: mc-hub
         image: fredericfc/magic_castle-ui:{{ mc_hub_version }}
         restart_policy: always
@@ -207,30 +162,17 @@
         published_ports:
           - "{{ internal_web_app_port }}:5000"
         mounts:
-          - source: database
-            target: /home/mcu/database
-            type: volume
-          - source: "/home/{{ ansible_user }}/mc-hub/acme_key.pem"
-            target: /home/mcu/credentials/acme_key.pem
-            type: bind
-          - source: "/home/{{ ansible_user }}/mc-hub/clouds.yaml"
-            target: /home/mcu/credentials/clouds.yaml
-            type: bind
-          - source: "/home/{{ ansible_user }}/mc-hub/clusters_backup"
-            target: /home/mcu/clusters
-            type: bind
-          - source: "/home/{{ ansible_user }}/mc-hub/configuration.json"
-            target: /home/mcu/configuration.json
-            type: bind
-          - source: "/home/{{ ansible_user }}/mc-hub/app"
-            target: /home/mcu/app
-            type: bind
+          - type=bind,source=/home/{{ ansible_user }}/mc-hub/acme_key.pem,destination=/home/mcu/credentials/acme_key.pem
+          - type=bind,source=/home/{{ ansible_user }}/mc-hub/clouds.yaml,destination=/home/mcu/credentials/clouds.yaml
+          - type=bind,source=/home/{{ ansible_user }}/mc-hub/clusters_backup,destination=/home/mcu/clusters
+          - type=bind,source=/home/{{ ansible_user }}/mc-hub/configuration.json,destination=/home/mcu/configuration.json
+          - type=bind,source=/home/{{ ansible_user }}/mc-hub/database,destination=/home/mcu/database
+        userns: keep-id
+        workdir: /home/mcu
       tags:
         - docker
     - name: Start the MC Hub clean-up container
-      vars:
-        ansible_python_interpreter: "{{ docker_virtualenv_path }}/bin/python"
-      docker_container:
+      containers.podman.podman_container:
         name: mc-hub-cleaner
         image: fredericfc/magic_castle-ui:{{ mc_hub_version }}
         restart_policy: always
@@ -240,16 +182,16 @@
           MCHUB_HOST: "127.0.0.1"
           MCHUB_PORT: "5000"
         mounts:
-          - source: "/home/{{ ansible_user }}/mc-hub/configuration.json"
-            target: /home/mcu/configuration.json
-            type: bind
+          - type=bind,source=/home/{{ ansible_user }}/mc-hub/configuration.json,destination=/home/mcu/configuration.json
         command: "/home/mcu/venv/bin/python -m mchub.services.cull_expired_cluster"
+        userns: keep-id
       tags:
         - docker
     - name: Enable HTTPS
       # Inspired by https://certbot.eff.org/lets-encrypt/centosrhel7-apache
       block:
         - name: Install Certbot
+          become: yes
           yum:
             name:
               - certbot
@@ -265,16 +207,19 @@
             - /etc/letsencrypt/live/{{ fqdn }}/fullchain.pem
           register: https_keys_and_certificates_stats
         - name: Generate HTTPS certificate
+          become: yes
           # Only generate HTTPS keys and certificate when they don't already exist
           when: https_keys_and_certificates_stats.results | rejectattr('stat.exists') | list
           command:
             cmd: certbot -n --apache -d {{ fqdn }} -m {{ server_admin_email }} --agree-tos certonly
         - name: Create the HTTPS Apache configuration file
+          become: yes
           template:
             src: files/etc/httpd/conf.d/httpd-le-ssl.conf.j2
             dest: /etc/httpd/conf.d/httpd-le-ssl.conf
             mode: "0644"
         - name: Setup automatic HTTPS certificate renewal
+          become: yes
           cron:
             name: Let's Encrypt HTTPS certificate renewal
             cron_file: /etc/crontab
