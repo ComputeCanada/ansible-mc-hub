@@ -198,6 +198,7 @@
               - python3-certbot-apache
             state: installed
         - name: Check whether HTTPS keys and certificates already exist
+          become: yes
           stat:
             path: "{{ item }}"
           loop:
@@ -222,7 +223,6 @@
           become: yes
           cron:
             name: Let's Encrypt HTTPS certificate renewal
-            cron_file: /etc/crontab
             minute: "0"
             hour: "0,12"
             day: "*"
