@@ -130,14 +130,17 @@
           file:
             path: "/home/{{ ansible_user }}/mc-hub/database"
             state: directory
+          mode: "0600"
         - name: Copy the OpenStack configuration file
           copy:
             src: "{{ inventory_dir }}/clouds.yaml"
             dest: "/home/{{ ansible_user }}/mc-hub"
+          mode: "0600"
         - name: Copy the MC Hub configuration file
           copy:
             src: "{{ inventory_dir }}/configuration.json"
             dest: "/home/{{ ansible_user }}/mc-hub"
+          mode: "0600"
         - name: Create the clusters backup directory
           file:
             path: "/home/{{ ansible_user }}/mc-hub/clusters_backup"
@@ -147,6 +150,7 @@
           copy:
             src: "{{ inventory_dir }}/acme_key.pem"
             dest: "/home/{{ ansible_user }}/mc-hub"
+          mode: "0600"
       tags:
         - docker
     - name: Start the MC Hub container
