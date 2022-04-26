@@ -60,14 +60,14 @@
           register: shib_keys_and_certificates_stats
         - name: Copy Shibboleth keys and certificates
           copy:
-            src: "{{ inventory_dir }}/shibboleth-crypto/{{ item }}"
+            src: "{{ inventory_dir }}/shibboleth-crypto/{{ item.src }}"
             dest: /etc/shibboleth
-            mode: "0644"
+            mode: "{{ item.mode }}"
           with_items:
-            - sp-encrypt-cert.pem
-            - sp-encrypt-key.pem
-            - sp-signing-cert.pem
-            - sp-signing-key.pem
+            - {src: "sp-encrypt-cert.pem", mode: "0644"}
+            - {src: "sp-encrypt-key.pem", mode: "0600"}
+            - {src: "sp-signing-cert.pem", mode: "0644"}
+            - {src: "sp-signing-key.pem", mode: "0600"}
           when: (shib_keys_and_certificates_stats.results | selectattr('rc') | list | length) == 0
         - name: Copy Shibboleth attribute map
           copy:
@@ -197,6 +197,12 @@
               - certbot
               - python3-certbot-apache
             state: installed
+        - name: Create the HTTPS Apache configuration file
+          become: yes
+          template:
+            src: files/etc/httpd/conf.d/httpd-le-ssl.conf.j2
+            dest: /etc/httpd/conf.d/httpd-le-ssl.conf
+            mode: "0644"
         - name: Check whether HTTPS keys and certificates already exist
           become: yes
           stat:
@@ -213,12 +219,6 @@
           when: https_keys_and_certificates_stats.results | rejectattr('stat.exists') | list
           command:
             cmd: certbot -n --apache -d {{ fqdn }} -m {{ server_admin_email }} --agree-tos certonly
-        - name: Create the HTTPS Apache configuration file
-          become: yes
-          template:
-            src: files/etc/httpd/conf.d/httpd-le-ssl.conf.j2
-            dest: /etc/httpd/conf.d/httpd-le-ssl.conf
-            mode: "0644"
         - name: Setup automatic HTTPS certificate renewal
           become: yes
           cron:
