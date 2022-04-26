@@ -143,7 +143,7 @@
           mode: "0600"
         - name: Create the clusters backup directory
           file:
-            path: "/home/{{ ansible_user }}/mc-hub/clusters_backup"
+            path: "/home/{{ ansible_user }}/mc-hub/clusters"
             state: directory
             mode: "0600"
         - name: Copy the ACME registration key
@@ -157,7 +157,6 @@
       containers.podman.podman_container:
         name: mc-hub
         image: fredericfc/magic_castle-ui:{{ mc_hub_version }}
-        restart_policy: always
         state: started
         env:
           MAGIC_CASTLE_ACME_KEY_PEM: /home/mcu/credentials/acme_key.pem
@@ -165,12 +164,12 @@
           OS_CLOUD: "{{ default_cloud  }}"
         published_ports:
           - "{{ internal_web_app_port }}:5000"
-        mounts:
-          - type=bind,source=/home/{{ ansible_user }}/mc-hub/acme_key.pem,destination=/home/mcu/credentials/acme_key.pem
-          - type=bind,source=/home/{{ ansible_user }}/mc-hub/clouds.yaml,destination=/home/mcu/credentials/clouds.yaml
-          - type=bind,source=/home/{{ ansible_user }}/mc-hub/clusters_backup,destination=/home/mcu/clusters
-          - type=bind,source=/home/{{ ansible_user }}/mc-hub/configuration.json,destination=/home/mcu/configuration.json
-          - type=bind,source=/home/{{ ansible_user }}/mc-hub/database,destination=/home/mcu/database
+        volumes:
+          - /home/{{ ansible_user }}/mc-hub/acme_key.pem:/home/mcu/credentials/acme_key.pem
+          - /home/{{ ansible_user }}/mc-hub/clouds.yaml:/home/mcu/credentials/clouds.yaml
+          - /home/{{ ansible_user }}/mc-hub/configuration.json:/home/mcu/configuration.json
+          - /home/{{ ansible_user }}/mc-hub/clusters:/home/mcu/clusters
+          - /home/{{ ansible_user }}/mc-hub/database:/home/mcu/database
         userns: keep-id
         workdir: /home/mcu
       tags:
@@ -185,8 +184,8 @@
         env:
           MCHUB_HOST: "127.0.0.1"
           MCHUB_PORT: "5000"
-        mounts:
-          - type=bind,source=/home/{{ ansible_user }}/mc-hub/configuration.json,destination=/home/mcu/configuration.json
+        volumes:
+          - /home/{{ ansible_user }}/mc-hub/configuration.json:/home/mcu/configuration.json
         command: "/home/mcu/venv/bin/python -m mchub.services.cull_expired_cluster"
         userns: keep-id
       tags:
