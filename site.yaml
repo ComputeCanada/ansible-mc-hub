@@ -204,12 +204,6 @@
               - certbot
               - python3-certbot-apache
             state: installed
-        - name: Create the HTTPS Apache configuration file
-          become: yes
-          template:
-            src: files/etc/httpd/conf.d/httpd-le-ssl.conf.j2
-            dest: /etc/httpd/conf.d/httpd-le-ssl.conf
-            mode: "0644"
         - name: Check whether HTTPS keys and certificates already exist
           become: yes
           stat:
@@ -226,6 +220,17 @@
           when: https_keys_and_certificates_stats.results | rejectattr('stat.exists') | list
           command:
             cmd: certbot -n --apache -d {{ fqdn }} -m {{ server_admin_email }} --agree-tos certonly
+        - name: Create the HTTPS Apache configuration file
+          become: yes
+          template:
+            src: files/etc/httpd/conf.d/httpd-le-ssl.conf.j2
+            dest: /etc/httpd/conf.d/httpd-le-ssl.conf
+            mode: "0644"
+        - name: Reload httpd
+          become: yes
+          ansible.builtin.service:
+            name: httpd
+            state: reloaded
         - name: Setup automatic HTTPS certificate renewal
           become: yes
           cron:
