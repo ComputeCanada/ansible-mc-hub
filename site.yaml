@@ -139,7 +139,7 @@
           copy:
             src: "{{ inventory_dir }}/clouds.yaml"
             dest: "/home/{{ ansible_user }}/mc-hub"
-            mode: "0700"
+            mode: "0600"
         - name: Copy the MC Hub configuration file
           copy:
             src: "{{ inventory_dir }}/configuration.json"
