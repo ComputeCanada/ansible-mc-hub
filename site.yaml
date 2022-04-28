@@ -7,6 +7,9 @@
       become: yes
       ansible.posix.selinux:
         state: disabled
+    - name: Enable linger process for {{ ansible_user }}
+      become: yes
+      ansible.builtin.shell: loginctl enable-linger {{ ansible_user }}
     - name: Install EPEL repo
       become: yes
       yum:
