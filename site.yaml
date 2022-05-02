@@ -279,5 +279,8 @@
       tags:
         - filebeat
     - name: Install sqlite3
-      yum: sqlite
+      become: yes
+      yum:
+        name: sqlite
+        state: installed
     - name: Configure users database
