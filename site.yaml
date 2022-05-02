@@ -80,7 +80,7 @@
         - name: Download Identity Provider's metadata
           get_url:
             url: "{{ saml_identity_provider_metadata_url }}"
-            dest: /etc/shibboleth/idp-metadata.xml
+            dest: /etc/shibboleth/partner-metadata.xml
             mode: "0644"
         - name: Create Shibboleth main configuration file
           template:
