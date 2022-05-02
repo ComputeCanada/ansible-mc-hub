@@ -244,33 +244,37 @@
             job: "python3 -c 'import random; import time; time.sleep(random.random() * 3600)' && certbot renew -q"
       tags:
         - apache
-    # - name: Configure Filebeat
-    #   block:
-    #     - name: Create downloads directory
-    #       file:
-    #         path: "/home/{{ ansible_user }}/Downloads"
-    #         state: directory
-    #     - name: Download Filebeat
-    #       get_url:
-    #         url: https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-6.0.1-x86_64.rpm
-    #         dest: "/home/{{ ansible_user }}/Downloads/filebeat.rpm"
-    #     - name: Install Filebeat
-    #       yum:
-    #         name: "/home/{{ ansible_user }}/Downloads/filebeat.rpm"
-    #         state: present
-    #     - name: Configure Filebeat
-    #       template:
-    #         src: files/etc/filebeat/filebeat.yml
-    #         dest: /etc/filebeat/filebeat.yml
-    #         mode: "0644"
-    #     - name: Copy logstash certificate
-    #       copy:
-    #         src: "{{ inventory_dir }}/logstash-servers.crt"
-    #         dest: /etc/filebeat/logstash-servers.crt
-    #     - name: Start Filebeat service
-    #       systemd:
-    #         name: filebeat
-    #         state: started
-    #         enabled: yes
-    #   tags:
-    #     - filebeat
+    - name: Configure Filebeat
+      when: configure_filebeat is defined
+      block:
+        - name: Create downloads directory
+          file:
+            path: "/home/{{ ansible_user }}/Downloads"
+            state: directory
+        - name: Download Filebeat
+          get_url:
+            url: https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-6.0.1-x86_64.rpm
+            dest: "/home/{{ ansible_user }}/Downloads/filebeat.rpm"
+        - name: Install Filebeat
+          yum:
+            name: "/home/{{ ansible_user }}/Downloads/filebeat.rpm"
+            state: present
+        - name: Configure Filebeat
+          become: yes
+          template:
+            src: files/etc/filebeat/filebeat.yml
+            dest: /etc/filebeat/filebeat.yml
+            mode: "0644"
+        - name: Copy logstash certificate
+          become: yes
+          copy:
+            src: "{{ inventory_dir }}/logstash-servers.crt"
+            dest: /etc/filebeat/logstash-servers.crt
+        - name: Start Filebeat service
+          become: yes
+          systemd:
+            name: filebeat
+            state: started
+            enabled: yes
+      tags:
+        - filebeat
