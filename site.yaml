@@ -278,3 +278,7 @@
             enabled: yes
       tags:
         - filebeat
+    - name: Configure users database
+      block:
+        - name: Install sqlite3
+          yum: sqlite
