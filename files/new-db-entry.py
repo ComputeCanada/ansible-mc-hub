@@ -1,25 +1,26 @@
+#!/usr/bin/env python3
 import sqlite3
 from json import dumps
 
-con = sqlite3.connect('database.db')
-cur = con.cursor()
-usernames = [
-    'fafor10@computecanada.ca',
-    'dboss@computecanada.ca',
-    'jralbert@computecanada.ca',
-    'jfaure@computecanada.ca'
-]
-projects = [
-    'arbutus:training',
-    'beluga:training'
-]
+import yaml
 
-statement = """
-INSERT INTO users (username, projects) VALUES (?, ?)
-"""
+def main(filename):
+  with open(filename, 'r') as file:
+    user_project_map = yaml.safe_load(file)
 
-for username in usernames:
-  cur.execute(statement, (username, dumps(projects)))
+  with sqlite3.connect('database.db') as con:
+    cur = con.cursor()
+    cur.execute("DELETE FROM users")
+    statement = """
+    INSERT INTO users (username, projects) VALUES (?, ?)
+    """
 
-con.commit()
-con.close()
+    for (username, projects) in user_project_map.items():
+      cur.execute(statement, (username, dumps(projects)))
+
+    con.commit()
+
+if __name__ == "__main__":
+  import sys
+  if len(sys.argv) > 1:
+    main(sys.argv[1])

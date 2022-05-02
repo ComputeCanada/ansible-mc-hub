@@ -283,4 +283,22 @@
       yum:
         name: sqlite
         state: installed
+    - name: get file stat to be able to perform a check in the following task
+      tags: users-db
+      local_action: stat path={{ inventory_dir }}/user-project.yaml
+      register: file
+    - name: Copy the MC Hub users configuration file
+      tags: users-db
+      when: file.stat.exists
+      register: userproject
+      copy:
+        src: "{{ inventory_dir }}/user-project.yaml"
+        dest: "/home/{{ ansible_user }}/mc-hub/database"
+        mode: "0600"
     - name: Configure users database
+      tags: users-db
+      when: userproject.changed
+      script: new-db-entry.py user-project.yaml
+      args:
+        executable: python3
+        chdir: /home/rocky/mc-hub/database
