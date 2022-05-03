@@ -1,70 +1,37 @@
 - hosts: all
-  become: yes
   vars:
-    docker_virtualenv_path: /home/centos/docker-venv
     internal_web_app_port: "5000"
   tasks:
-    - name: Enable EPEL repo
+    # Disable SELinux because of issues with podman when mounting file
+    - name: Disable SELinux
+      become: yes
+      ansible.posix.selinux:
+        state: disabled
+    - name: Enable linger process for {{ ansible_user }}
+      become: yes
+      ansible.builtin.shell: loginctl enable-linger {{ ansible_user }}
+    - name: Install EPEL repo
+      become: yes
       yum:
         name: epel-release
-        state: installed
-      tags:
-        - common
-    - name: Install yum utils
+        state: present
+    - name: Install podman
+      become: yes
       yum:
-        name: yum-utils
+        name: podman
         state: installed
       tags:
         - common
-    - name: Install PIP
-      yum:
-        name: python-pip
-        state: installed
-      tags:
-        - common
-    - name: Upgrade pip
-      pip:
-        name: pip
-        version: "20.2.1"
-      tags:
-        - common
-    - name: Install Virtualenv
-      pip:
-        name: virtualenv
-        version: "20.0.30"
-      tags:
-        - common      
-    - name: Install Docker
-      block:
-        - name: Add Docker repository
-          command: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-          args:
-            creates: /etc/yum.repos.d/docker-ce.repo
-        - name: Install Docker
-          yum:
-            name:
-              - docker-ce
-              - docker-ce-cli
-              - containerd.io
-            state: installed
-      tags:
-        - docker
-    - name: Start Docker service
-      systemd:
-        name: docker
-        state: started
-        enabled: yes
-      tags:
-        - docker
     - name: Install Shibboleth service provider
+      become: yes
       block:
         - name: Add Shibboleth repository
           yum_repository:
             name: shibboleth
-            description: Shibboleth (CentOS_7)
-            gpgcheck: yes
-            gpgkey: https://download.opensuse.org/repositories/security:/shibboleth/CentOS_7/repodata/repomd.xml.key
-            mirrorlist: https://shibboleth.net/cgi-bin/mirrorlist.cgi/CentOS_7
+            description: Shibboleth (CentOS_8)
+            gpgcheck: no
+            gpgkey: https://download.opensuse.org/repositories/security:/shibboleth/CentOS_8/repodata/repomd.xml.key
+            mirrorlist: https://shibboleth.net/cgi-bin/mirrorlist.cgi/CentOS_8
         - name: Install Shibboleth package
           yum:
             name: shibboleth.x86_64
@@ -72,6 +39,7 @@
       tags:
         - shibboleth
     - name: Install Apache HTTPD server
+      become: yes
       yum:
         name:
           - httpd.x86_64
@@ -80,6 +48,7 @@
       tags:
         - apache
     - name: Configure Shibboleth service provider
+      become: yes
       block:
         - name: Check if Shibboleth keys and certificates exist locally
           local_action: command stat {{ inventory_dir }}/shibboleth-crypto/{{ item }}
@@ -94,14 +63,14 @@
           register: shib_keys_and_certificates_stats
         - name: Copy Shibboleth keys and certificates
           copy:
-            src: "{{ inventory_dir }}/shibboleth-crypto/{{ item }}"
+            src: "{{ inventory_dir }}/shibboleth-crypto/{{ item.src }}"
             dest: /etc/shibboleth
-            mode: "0644"
+            mode: "{{ item.mode }}"
           with_items:
-            - sp-encrypt-cert.pem
-            - sp-encrypt-key.pem
-            - sp-signing-cert.pem
-            - sp-signing-key.pem
+            - {src: "sp-encrypt-cert.pem", mode: "0644"}
+            - {src: "sp-encrypt-key.pem", mode: "0600"}
+            - {src: "sp-signing-cert.pem", mode: "0644"}
+            - {src: "sp-signing-key.pem", mode: "0600"}
           when: (shib_keys_and_certificates_stats.results | selectattr('rc') | list | length) == 0
         - name: Copy Shibboleth attribute map
           copy:
@@ -111,7 +80,7 @@
         - name: Download Identity Provider's metadata
           get_url:
             url: "{{ saml_identity_provider_metadata_url }}"
-            dest: /etc/shibboleth/idp-metadata.xml
+            dest: /etc/shibboleth/partner-metadata.xml
             mode: "0644"
         - name: Create Shibboleth main configuration file
           template:
@@ -126,6 +95,7 @@
       tags:
         - shibboleth
     - name: Configure Apache HTTPD server
+      become: yes
       block:
         - name: Remove Apache welcome.conf configuration file
           file:
@@ -141,11 +111,11 @@
             src: files/etc/httpd/conf.d/shib.conf.j2
             dest: /etc/httpd/conf.d/shib.conf
             mode: "0644"
-        - name: Set httpd_can_network_connect flag on
-          seboolean:
-            name: httpd_can_network_connect
-            state: yes
-            persistent: yes
+              #        - name: Set httpd_can_network_connect flag on
+              #          seboolean:
+              #            name: httpd_can_network_connect
+              #            state: yes
+              #            persistent: yes
         - name: Start Apache service
           systemd:
             name: httpd
@@ -157,79 +127,85 @@
       block:
         - name: Create the MC Hub work directory
           file:
-            path: /home/centos/mcui
+            path: "/home/{{ ansible_user }}/mc-hub"
             state: directory
+            mode: "0700"
+        - name: Create the MC Hub database directory
+          file:
+            path: "/home/{{ ansible_user }}/mc-hub/database"
+            state: directory
+            mode: "0700"
         - name: Copy the OpenStack configuration file
           copy:
             src: "{{ inventory_dir }}/clouds.yaml"
-            dest: /home/centos/mcui
-        - name: Copy the Google Cloud service account configuration file
-          copy:
-            src: "{{ inventory_dir }}/gcloud-key.json"
-            dest: /home/centos/mcui
+            dest: "/home/{{ ansible_user }}/mc-hub"
+            mode: "0600"
         - name: Copy the MC Hub configuration file
           copy:
             src: "{{ inventory_dir }}/configuration.json"
-            dest: /home/centos/mcui
-        - name: Create the clusters backup directory
+            dest: "/home/{{ ansible_user }}/mc-hub"
+            mode: "0600"
+        - name: Create the clusters directory
           file:
-            path: /home/centos/mcui/clusters_backup
+            path: "/home/{{ ansible_user }}/mc-hub/clusters"
             state: directory
-            mode: "0777"
-      tags:
-        - docker
-    - name: Install Docker SDK for Python
-      # docker_container module requires Docker SDK for Python
-      block:
-        - name: Create Docker SDK for Python's virtual environment
-          command:
-            cmd: virtualenv {{ docker_virtualenv_path }}
-            creates: "{{ docker_virtualenv_path }}"
-        - name: Install Docker SDK for Python
-          pip:
-            name: docker
-            version: "4.3.0"
-            virtualenv: "{{ docker_virtualenv_path }}"
+            mode: "0700"
+        - name: Copy the ACME registration key
+          copy:
+            src: "{{ inventory_dir }}/acme_key.pem"
+            dest: "/home/{{ ansible_user }}/mc-hub"
+            mode: "0600"
       tags:
         - docker
     - name: Start the MC Hub container
-      vars:
-        ansible_python_interpreter: "{{ docker_virtualenv_path }}/bin/python"
-      docker_container:
-        name: mcui
+      containers.podman.podman_container:
+        name: mc-hub
+        image: fredericfc/magic_castle-ui:{{ mc_hub_version }}
+        state: started
+        env:
+          MAGIC_CASTLE_ACME_KEY_PEM: /home/mcu/credentials/acme_key.pem
+          OS_CLIENT_CONFIG_FILE: /home/mcu/credentials/clouds.yaml
+          OS_CLOUD: "{{ default_cloud  }}"
+        published_ports:
+          - "{{ internal_web_app_port }}:5000"
+        volumes:
+          - /home/{{ ansible_user }}/mc-hub/acme_key.pem:/home/mcu/credentials/acme_key.pem
+          - /home/{{ ansible_user }}/mc-hub/clouds.yaml:/home/mcu/credentials/clouds.yaml
+          - /home/{{ ansible_user }}/mc-hub/configuration.json:/home/mcu/configuration.json
+          - /home/{{ ansible_user }}/mc-hub/clusters:/home/mcu/clusters
+          - /home/{{ ansible_user }}/mc-hub/database:/home/mcu/database
+        userns: keep-id
+        workdir: /home/mcu
+      tags:
+        - docker
+    - name: Start the MC Hub clean-up container
+      containers.podman.podman_container:
+        name: mc-hub-cleaner
         image: fredericfc/magic_castle-ui:{{ mc_hub_version }}
         restart_policy: always
         state: started
-        published_ports:
-          - "{{ internal_web_app_port }}:5000"
-        mounts:
-          - source: database
-            target: /home/mcu/database
-            type: volume
-          - source: /home/centos/mcui/gcloud-key.json
-            target: /home/mcu/credentials/gcloud-key.json
-            type: bind
-          - source: /home/centos/mcui/clouds.yaml
-            target: /home/mcu/.config/openstack/clouds.yaml
-            type: bind
-          - source: /home/centos/mcui/clusters_backup
-            target: /home/mcu/clusters
-            type: bind
-          - source: /home/centos/mcui/configuration.json
-            target: /home/mcu/configuration.json
-            type: bind
+        network_mode: host
+        env:
+          MCHUB_HOST: "127.0.0.1"
+          MCHUB_PORT: "5000"
+        volumes:
+          - /home/{{ ansible_user }}/mc-hub/configuration.json:/home/mcu/configuration.json
+        command: "/home/mcu/venv/bin/python -m mchub.services.cull_expired_cluster"
+        userns: keep-id
       tags:
         - docker
     - name: Enable HTTPS
       # Inspired by https://certbot.eff.org/lets-encrypt/centosrhel7-apache
       block:
         - name: Install Certbot
+          become: yes
           yum:
             name:
               - certbot
-              - python2-certbot-apache
+              - python3-certbot-apache
             state: installed
         - name: Check whether HTTPS keys and certificates already exist
+          become: yes
           stat:
             path: "{{ item }}"
           loop:
@@ -239,55 +215,90 @@
             - /etc/letsencrypt/live/{{ fqdn }}/fullchain.pem
           register: https_keys_and_certificates_stats
         - name: Generate HTTPS certificate
+          become: yes
           # Only generate HTTPS keys and certificate when they don't already exist
           when: https_keys_and_certificates_stats.results | rejectattr('stat.exists') | list
           command:
             cmd: certbot -n --apache -d {{ fqdn }} -m {{ server_admin_email }} --agree-tos certonly
         - name: Create the HTTPS Apache configuration file
+          become: yes
           template:
             src: files/etc/httpd/conf.d/httpd-le-ssl.conf.j2
             dest: /etc/httpd/conf.d/httpd-le-ssl.conf
             mode: "0644"
-        - name: Setup automatic HTTPS certificate renewal 
+        - name: Reload httpd
+          become: yes
+          ansible.builtin.service:
+            name: httpd
+            state: reloaded
+        - name: Setup automatic HTTPS certificate renewal
+          become: yes
           cron:
             name: Let's Encrypt HTTPS certificate renewal
-            cron_file: /etc/crontab
             minute: "0"
             hour: "0,12"
             day: "*"
             month: "*"
             weekday: "*"
             user: root
-            job: "python -c 'import random; import time; time.sleep(random.random() * 3600)' && certbot renew -q"
+            job: "python3 -c 'import random; import time; time.sleep(random.random() * 3600)' && certbot renew -q"
       tags:
         - apache
     - name: Configure Filebeat
+      when: configure_filebeat is defined
       block:
         - name: Create downloads directory
           file:
-            path: /home/centos/Downloads
+            path: "/home/{{ ansible_user }}/Downloads"
             state: directory
         - name: Download Filebeat
           get_url:
             url: https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-6.0.1-x86_64.rpm
-            dest: /home/centos/Downloads/filebeat.rpm
+            dest: "/home/{{ ansible_user }}/Downloads/filebeat.rpm"
         - name: Install Filebeat
           yum:
-            name: /home/centos/Downloads/filebeat.rpm
+            name: "/home/{{ ansible_user }}/Downloads/filebeat.rpm"
             state: present
         - name: Configure Filebeat
+          become: yes
           template:
             src: files/etc/filebeat/filebeat.yml
             dest: /etc/filebeat/filebeat.yml
             mode: "0644"
         - name: Copy logstash certificate
+          become: yes
           copy:
             src: "{{ inventory_dir }}/logstash-servers.crt"
             dest: /etc/filebeat/logstash-servers.crt
         - name: Start Filebeat service
+          become: yes
           systemd:
             name: filebeat
             state: started
             enabled: yes
       tags:
         - filebeat
+    - name: Install sqlite3
+      become: yes
+      yum:
+        name: sqlite
+        state: installed
+    - name: get file stat to be able to perform a check in the following task
+      tags: users-db
+      local_action: stat path={{ inventory_dir }}/user-project.yaml
+      register: file
+    - name: Copy the MC Hub users configuration file
+      tags: users-db
+      when: file.stat.exists
+      register: userproject
+      copy:
+        src: "{{ inventory_dir }}/user-project.yaml"
+        dest: "/home/{{ ansible_user }}/mc-hub/database"
+        mode: "0600"
+    - name: Configure users database
+      tags: users-db
+      when: userproject.changed
+      script: new-db-entry.py user-project.yaml
+      args:
+        executable: python3
+        chdir: /home/rocky/mc-hub/database
