@@ -175,7 +175,7 @@
           - "{{ internal_web_app_port }}:5000"
         volumes:
           - /home/{{ ansible_user }}/mc-hub/configuration.json:/home/mcu/configuration.json
-          - /home/{{ ansible_user }}/mc-hub/credentials:/home/mcu/credentials/credentials
+          - /home/{{ ansible_user }}/mc-hub/credentials:/home/mcu/credentials
           - /home/{{ ansible_user }}/mc-hub/clusters:/home/mcu/clusters
           - /home/{{ ansible_user }}/mc-hub/database:/home/mcu/database
         userns: keep-id
