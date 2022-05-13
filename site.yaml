@@ -10,7 +10,7 @@
     - name: Add ssh keys of {{ github_user }}
       when: github_user is defined
       ansible.posix.authorized_key:
-        user:  {{ ansible_user }}
+        user:  "{{ ansible_user }}"
         state: present
         key: https://github.com/{{ github_user }}.keys
     - name: Enable linger process for {{ ansible_user }}
