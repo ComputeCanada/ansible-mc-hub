@@ -7,6 +7,12 @@
       become: yes
       ansible.posix.selinux:
         state: disabled
+    - name: Add ssh keys of {{ github_user }}
+      when: github_user is defined
+      ansible.posix.authorized_key:
+        user:  {{ ansible_user }}
+        state: present
+        key: https://github.com/{{ github_user }}.keys
     - name: Enable linger process for {{ ansible_user }}
       become: yes
       ansible.builtin.shell: loginctl enable-linger {{ ansible_user }}
