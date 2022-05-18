@@ -171,7 +171,7 @@
     - name: Start the MC Hub container
       containers.podman.podman_container:
         name: mc-hub
-        image: cmdntrf/mc-hub:{{ mc_hub_version }}
+        image: docker.io/cmdntrf/mc-hub:{{ mc_hub_version }}
         state: started
         env:
           MAGIC_CASTLE_ACME_KEY_PEM: /home/mcu/credentials/acme_key.pem
@@ -191,7 +191,7 @@
     - name: Start the MC Hub clean-up container
       containers.podman.podman_container:
         name: mc-hub-cleaner
-        image: cmdntrf/mc-hub:{{ mc_hub_version }}
+        image: docker.io/cmdntrf/mc-hub:{{ mc_hub_version }}
         restart_policy: always
         state: started
         network_mode: host
@@ -200,7 +200,7 @@
           MCHUB_PORT: "5000"
         volumes:
           - /home/{{ ansible_user }}/mc-hub/configuration.json:/home/mcu/configuration.json
-        command: "/home/mcu/venv/bin/python -m mchub.services.cull_expired_cluster"
+        command: "python3 -m mchub.services.cull_expired_cluster"
         userns: keep-id
       tags:
         - docker
