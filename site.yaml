@@ -146,6 +146,11 @@
             path: "/home/{{ ansible_user }}/mc-hub/credentials"
             state: directory
             mode: "0700"
+        - name: Create the MC Hub Terraform plugin-cache directory
+          file:
+            path: "/home/{{ ansible_user }}/mc-hub/plugin-cache"
+            state: directory
+            mode: "0700"
         - name: Copy the OpenStack configuration file
           copy:
             src: "{{ inventory_dir }}/clouds.yaml"
@@ -184,6 +189,7 @@
           - /home/{{ ansible_user }}/mc-hub/credentials:/home/mcu/credentials
           - /home/{{ ansible_user }}/mc-hub/clusters:/home/mcu/clusters
           - /home/{{ ansible_user }}/mc-hub/database:/home/mcu/database
+          - /home/{{ ansible_user }}/mc-hub/plugin-cache:/home/mcu/.terraform.d/plugin-cache
         userns: keep-id
         workdir: /home/mcu
       tags:
