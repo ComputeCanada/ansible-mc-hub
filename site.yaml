@@ -151,11 +151,6 @@
             path: "/home/{{ ansible_user }}/mc-hub/plugin-cache"
             state: directory
             mode: "0700"
-        - name: Copy the OpenStack configuration file
-          copy:
-            src: "{{ inventory_dir }}/clouds.yaml"
-            dest: "/home/{{ ansible_user }}/mc-hub/credentials"
-            mode: "0600"
         - name: Copy the MC Hub configuration file
           copy:
             src: "{{ inventory_dir }}/configuration.json"
@@ -180,8 +175,6 @@
         state: started
         env:
           MAGIC_CASTLE_ACME_KEY_PEM: /home/mcu/credentials/acme_key.pem
-          OS_CLIENT_CONFIG_FILE: /home/mcu/credentials/clouds.yaml
-          OS_CLOUD: "{{ default_cloud  }}"
         published_ports:
           - "{{ internal_web_app_port }}:5000"
         volumes:
