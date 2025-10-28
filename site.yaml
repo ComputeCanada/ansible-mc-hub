@@ -1,6 +1,7 @@
 - hosts: all
   vars:
     internal_web_app_port: "5000"
+    mc_hub_image: "{{ mc_hub_image_url | default('docker.io/cmdntrf/mc-hub') }}"
   tasks:
     # Disable SELinux because of issues with podman when mounting file
     - name: Disable SELinux
@@ -171,7 +172,7 @@
     - name: Start the MC Hub container
       containers.podman.podman_container:
         name: mc-hub
-        image: docker.io/cmdntrf/mc-hub:{{ mc_hub_version }}
+        image: "{{ mc_hub_image }}:{{ mc_hub_version }}"
         state: started
         env:
           MAGIC_CASTLE_ACME_KEY_PEM: /home/mcu/credentials/acme_key.pem
@@ -190,7 +191,7 @@
     - name: Start the MC Hub clean-up container
       containers.podman.podman_container:
         name: mc-hub-cleaner
-        image: docker.io/cmdntrf/mc-hub:{{ mc_hub_version }}
+        image: "{{ mc_hub_image }}:{{ mc_hub_version }}"
         restart_policy: always
         state: started
         network_mode: host
