@@ -1,6 +1,7 @@
 - hosts: all
   vars:
     internal_web_app_port: "5000"
+    mc_hub_image: "{{ mc_hub_image_url | default('docker.io/cmdntrf/mc-hub') }}"
   tasks:
     # Disable SELinux because of issues with podman when mounting file
     - name: Disable SELinux
@@ -146,11 +147,11 @@
             path: "/home/{{ ansible_user }}/mc-hub/credentials"
             state: directory
             mode: "0700"
-        - name: Copy the OpenStack configuration file
-          copy:
-            src: "{{ inventory_dir }}/clouds.yaml"
-            dest: "/home/{{ ansible_user }}/mc-hub/credentials"
-            mode: "0600"
+        - name: Create the MC Hub Terraform plugin-cache directory
+          file:
+            path: "/home/{{ ansible_user }}/mc-hub/plugin-cache"
+            state: directory
+            mode: "0700"
         - name: Copy the MC Hub configuration file
           copy:
             src: "{{ inventory_dir }}/configuration.json"
@@ -171,12 +172,10 @@
     - name: Start the MC Hub container
       containers.podman.podman_container:
         name: mc-hub
-        image: docker.io/cmdntrf/mc-hub:{{ mc_hub_version }}
+        image: "{{ mc_hub_image }}:{{ mc_hub_version }}"
         state: started
         env:
           MAGIC_CASTLE_ACME_KEY_PEM: /home/mcu/credentials/acme_key.pem
-          OS_CLIENT_CONFIG_FILE: /home/mcu/credentials/clouds.yaml
-          OS_CLOUD: "{{ default_cloud  }}"
         published_ports:
           - "{{ internal_web_app_port }}:5000"
         volumes:
@@ -184,6 +183,7 @@
           - /home/{{ ansible_user }}/mc-hub/credentials:/home/mcu/credentials
           - /home/{{ ansible_user }}/mc-hub/clusters:/home/mcu/clusters
           - /home/{{ ansible_user }}/mc-hub/database:/home/mcu/database
+          - /home/{{ ansible_user }}/mc-hub/plugin-cache:/home/mcu/.terraform.d/plugin-cache
         userns: keep-id
         workdir: /home/mcu
       tags:
@@ -191,7 +191,7 @@
     - name: Start the MC Hub clean-up container
       containers.podman.podman_container:
         name: mc-hub-cleaner
-        image: docker.io/cmdntrf/mc-hub:{{ mc_hub_version }}
+        image: "{{ mc_hub_image }}:{{ mc_hub_version }}"
         restart_policy: always
         state: started
         network_mode: host

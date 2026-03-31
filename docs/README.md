@@ -53,12 +53,7 @@ These steps assume you are using OpenStack as your cloud service provider but th
         cp <JSON key file location> gcloud-key.json
         ```
 
-3. Download or create a `clouds.yaml` file with your OpenStack cloud credentials. The cloud entry you want to use needs to be named `openstack`. It will be used to allocate the resources for the clusters. Copy the `clouds.yaml` file to the root of the repository.
-   ```
-   cp <clouds.yaml location> .
-   ```
-
-4. If you have already created a SAML service provider on a different server but with the same FQDN, you can use the same certificates and keys. If this is a new setup, skip this step.
+3. If you have already created a SAML service provider on a different server but with the same FQDN, you can use the same certificates and keys. If this is a new setup, skip this step.
 
     Create a directory named `shibboleth-crypto` at the root of the project directory.
 
