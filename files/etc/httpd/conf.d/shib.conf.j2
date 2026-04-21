@@ -53,3 +53,9 @@ Alias /shibboleth-sp/main.css /usr/share/shibboleth/main.css
     ProxyPass http://127.0.0.1:{{ internal_web_app_port }}/
     ProxyPassReverse http://127.0.0.1:{{ internal_web_app_port }}/
 </Location>
+
+<Location /api/tfcloud-proxy/>
+    AuthType None
+    Require all granted
+    ShibRequestSetting requireSession 0
+</Location>
