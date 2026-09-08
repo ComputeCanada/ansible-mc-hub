@@ -147,11 +147,6 @@
             path: "/home/{{ ansible_user }}/mc-hub/credentials"
             state: directory
             mode: "0700"
-        - name: Create the MC Hub Terraform plugin-cache directory
-          file:
-            path: "/home/{{ ansible_user }}/mc-hub/plugin-cache"
-            state: directory
-            mode: "0700"
         - name: Copy the MC Hub configuration file
           copy:
             src: "{{ inventory_dir }}/configuration.json"
@@ -162,11 +157,6 @@
             path: "/home/{{ ansible_user }}/mc-hub/clusters"
             state: directory
             mode: "0700"
-        - name: Copy the ACME registration key
-          copy:
-            src: "{{ inventory_dir }}/acme_key.pem"
-            dest: "/home/{{ ansible_user }}/mc-hub/credentials"
-            mode: "0600"
       tags:
         - docker
     - name: Start the MC Hub container
@@ -174,8 +164,6 @@
         name: mc-hub
         image: "{{ mc_hub_image }}:{{ mc_hub_version }}"
         state: started
-        env:
-          MAGIC_CASTLE_ACME_KEY_PEM: /home/mcu/credentials/acme_key.pem
         published_ports:
           - "{{ internal_web_app_port }}:5000"
         volumes:
@@ -183,7 +171,6 @@
           - /home/{{ ansible_user }}/mc-hub/credentials:/home/mcu/credentials
           - /home/{{ ansible_user }}/mc-hub/clusters:/home/mcu/clusters
           - /home/{{ ansible_user }}/mc-hub/database:/home/mcu/database
-          - /home/{{ ansible_user }}/mc-hub/plugin-cache:/home/mcu/.terraform.d/plugin-cache
         userns: keep-id
         workdir: /home/mcu
       tags:
@@ -254,40 +241,6 @@
             job: "python3 -c 'import random; import time; time.sleep(random.random() * 3600)' && certbot renew -q"
       tags:
         - apache
-    - name: Configure Filebeat
-      when: configure_filebeat is defined
-      block:
-        - name: Create downloads directory
-          file:
-            path: "/home/{{ ansible_user }}/Downloads"
-            state: directory
-        - name: Download Filebeat
-          get_url:
-            url: https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-6.0.1-x86_64.rpm
-            dest: "/home/{{ ansible_user }}/Downloads/filebeat.rpm"
-        - name: Install Filebeat
-          yum:
-            name: "/home/{{ ansible_user }}/Downloads/filebeat.rpm"
-            state: present
-        - name: Configure Filebeat
-          become: yes
-          template:
-            src: files/etc/filebeat/filebeat.yml
-            dest: /etc/filebeat/filebeat.yml
-            mode: "0644"
-        - name: Copy logstash certificate
-          become: yes
-          copy:
-            src: "{{ inventory_dir }}/logstash-servers.crt"
-            dest: /etc/filebeat/logstash-servers.crt
-        - name: Start Filebeat service
-          become: yes
-          systemd:
-            name: filebeat
-            state: started
-            enabled: yes
-      tags:
-        - filebeat
     - name: Install sqlite3
       become: yes
       yum:
