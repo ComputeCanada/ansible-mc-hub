@@ -142,6 +142,7 @@
             state: directory
             mode: "0700"
         - name: Copy the MC Hub configuration file
+          register: mc_hub_configuration
           copy:
             src: "{{ inventory_dir }}/configuration.json"
             dest: "/home/{{ ansible_user }}/mc-hub"
@@ -153,6 +154,7 @@
         name: mc-hub
         image: "{{ mc_hub_image }}:{{ mc_hub_version }}"
         state: started
+        force_restart: "{{ mc_hub_configuration.changed | default(false) }}"
         published_ports:
           - "{{ internal_web_app_port }}:5000"
         volumes:
@@ -169,6 +171,7 @@
         image: "{{ mc_hub_image }}:{{ mc_hub_version }}"
         restart_policy: always
         state: started
+        force_restart: "{{ mc_hub_configuration.changed | default(false) }}"
         network_mode: host
         env:
           FLASK_APP: "mchub:create_app"
